@@ -35,6 +35,7 @@ library(tidyr)
 library(LaplacesDemon)
 
 ######### Functions ############
+# joint precision matrix
 Dinv_new <- function(Rho, n, cn, ns, udnei,q){
   Tau <- list()
   B <- list()
@@ -52,6 +53,7 @@ Dinv_new <- function(Rho, n, cn, ns, udnei,q){
   }
   return(invD)
 }
+# corr(w_1j, w_2j): correlation for two diseases in the same region
 cor_fun = function(x){
   A21_est = diag(x[["eta0_21"]], n) + x[["eta1_21"]] * Minc
   
@@ -65,7 +67,7 @@ cor_fun = function(x){
   cor12 = diag(V_est[1:58, (1+58):(58+58)])/sqrt(diag(V_est[1:58, 1:58])*diag(V_est[(1+58):(58+58), (1+58):(58+58)]))
   return(cor12)
 }
-
+#mean spatial correlation for disease 1
 cor_fun1 = function(x){
   A21_est = diag(x[["eta0_21"]], n) + x[["eta1_21"]] * Minc
   
@@ -80,7 +82,7 @@ cor_fun1 = function(x){
   mean_cor1 = mean(cor1[which(Minc==1)])
   return(mean_cor1)
 }
-
+#mean spatial correlation for disease 2
 cor_fun2 = function(x){
   A21_est = diag(x[["eta0_21"]], n) + x[["eta1_21"]] * Minc
   
@@ -198,8 +200,8 @@ udnei=unlist(dneighbors)
 ni_wo = sapply(neighbors,length)
 cni_wo = cumsum(ni_wo)
 udnei_wo = unlist(neighbors)
-cn = c(0, cni)
-ns = dni
+#cn = c(0, cni)
+#ns = dni
 
 # Create response vector and covariate matrix in regression for each cancer
 Y1 = crude_rate_lung1$rate[final_perm]
@@ -219,11 +221,7 @@ X.o2 = as.matrix(bdiag(X2, X1))
 region = seq(1:n)
 cn = c(0, cni)
 ns = dni
-index = list()
-for(i in 1:(n-2)){
-  index[[i]] = region[-(udnei[(cn[i+1] + 1):(cn[i+1] + ns[i+1])])]
-}
-index1 = unlist(index)
+
 
 # GMCAR model
 sink("GMCAR.txt")
@@ -337,6 +335,13 @@ for(i in 1:15000){
 waic_car2 = WAIC(PL_single)
 
 #BDARAR model
+index = list()
+#the first two regions have no neighbors
+for(i in 1:(n-2)){
+  #regions not belong to the neighbors of region i
+  index[[i]] = region[-(udnei[(cn[i+1] + 1):(cn[i+1] + ns[i+1])])]
+}
+index1 = unlist(index)
 
 sink("BDAGAR.txt")
 cat("
@@ -373,11 +378,13 @@ cat("
     }
     b1[i] <- rho1 / (1 + (ns[i-1] - 1) * rho1^2)
     b2[i] <- rho2 / (1 + (ns[i-1] - 1) * rho2^2)
+    #neighbor regions for region i with coef b
     for(j in (udnei[(cn[i-1] + 1):(cn[i-1] + ns[i-1])])){
     B1[i,j] <- b1[i]
     B2[i,j] <- b2[i]
     }
-    for(j in index1[((k)*(i-3)-cn[i-1]+1) : ((k)*(i-3)-cn[i-1] + (k - ns[i-1]))]){
+    #regions which are not neighbors for region i with b = 0
+    for(j in index1[(k*(i-3)-cn[i-1]+1) : (k*(i-3)-cn[i-1] + (k - ns[i-1]))]){
     B1[i,j] <- 0
     B2[i,j] <- 0
     }
